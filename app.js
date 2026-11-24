@@ -96,10 +96,9 @@
       <p>此畫面只作投影／重溫，<strong>不能取代</strong> Activity 5.1 的實體剪角。觀課主軸仍是：學生先畫三角形、剪／撕三個內角、貼在尺上，親眼看到拼成平角。</p>
       <ul>
         <li>實體活動完成後，再投影幾款不同三角形（銳角不等邊、直角、鈍角、等腰、等邊），讓學生看到結果一樣。</li>
-        <li>三個角貼上尺後，先問「What do these three angles form?」，才揭示 straight angle／180° 與簡稱 ∠ sum of △。</li>
-        <li>投影不方便拖曳時，可用 “Fit them against the ruler”。</li>
-        <li>撕下後，把扇形拖到尺上：第一隻會停在放下的位置，頂點貼尺、開口向上。再把另一隻拖到尺上或靠過去，它們會共用同一個頂點、邊貼邊拼在一起，不會彈開到遠處。三隻都貼上後，會拼成平角。</li>
-        <li>尚未全部拼好時，可選取該角，按 Rotate left／Rotate right，或拖動弧上的小圓點來旋轉。</li>
+        <li>撕下後，把扇形拖到尺上：頂點會吸在尺線上，方向維持不變（向下或側向也保持原樣）。再拖另一隻到尺上或靠過去，它們會共用同一個頂點，但不會自動轉方向或拼齊。</li>
+        <li>要用 Rotate left／Rotate right，或拖動弧上的小圓點（↻）來轉個別的角。按 “Fit them against the ruler” 才會把 a、b、c 由左至右拼成向上開口的平角，然後先問「What do these three angles form?」，才揭示 straight angle／180° 與簡稱 ∠ sum of △。</li>
+        <li>投影不方便拖曳時，直接用 “Fit them against the ruler”。</li>
       </ul>
     `,
     proof: `
@@ -568,24 +567,20 @@
   }
 
   function placeSectorsOnRuler(verts, meeting, radius) {
-    // Left to right: a, b, c filling the upper half-plane, shared apex on the ruler.
+    // Fit only: a, then b, then c left to right, filling the upper half-plane.
     const order = ["a", "b", "c"];
-    let start = Math.PI; // left along the ruler
     const placed = {};
     order.forEach((key) => {
       const v = verts[key];
-      const m = rad(v.measure);
-      const from = start - m;
-      const to = start;
       placed[key] = {
         apex: [meeting[0], meeting[1]],
-        from, to, mid: (from + to) / 2,
-        measureRad: m,
+        from: 0, to: 0, mid: 0,
+        measureRad: rad(v.measure),
         radius, color: v.color, fill: v.fill, name: v.name, measure: v.measure,
         snapped: true,
       };
-      start = from;
     });
+    layoutCluster(placed, order, [meeting[0], meeting[1]]);
     return placed;
   }
 
@@ -596,23 +591,12 @@
     s.to = mid + m / 2;
   }
 
-  function orientSectorUpward(s) {
-    // Vertex will sit on the ruler; the sector opens into the upper half-plane,
-    // bisector straight up (π/2). Used only for a lone sector on the ruler.
-    setSectorAngles(s, Math.PI / 2);
-  }
-
   function snappedKeys(sectors) {
     return ["a", "b", "c"].filter((k) => sectors[k] && sectors[k].snapped);
   }
 
-  function orderByAngle(sectors, keys) {
-    // Left to right: larger `to` (the left ray) comes first.
-    return keys.slice().sort((p, q) => sectors[q].to - sectors[p].to);
-  }
-
   function layoutCluster(sectors, keys, apex) {
-    // Pack the given sectors (already in left-to-right order) so they share
+    // Used only by Fit: pack sectors in left-to-right order so they share
     // one vertex on the ruler and sit side by side, opening upward.
     if (!keys.length) return;
     const M = keys.reduce((sum, k) => sum + sectors[k].measureRad, 0);
@@ -652,7 +636,7 @@
     return homes;
   }
 
-  function drawLooseSectors(board, sectors, draggable, meeting, onSnapAll) {
+  function drawLooseSectors(board, sectors, draggable, meeting) {
     const handles = {};
     const rots = {};
     const polys = {};
@@ -714,74 +698,37 @@
     }
 
     function snapSectorToRuler(key) {
+      // Translate only: vertex onto the ruler. Never change from / to / mid.
       const s = sectors[key];
       const handle = handles[key];
       if (!s || !handle) return;
       const dropX = clampApexX(handle.X());
       const existing = snappedKeys(sectors).filter((k) => k !== key);
 
-      if (existing.length === 0) {
-        // First sector on the ruler: sit near the drop, vertex on the line, open upward.
-        const apex = [dropX, rulerY];
-        s.snapped = true;
-        s.apex = apex;
-        orientSectorUpward(s);
-        handle.setPositionDirectly(JXG.COORDS_BY_USER, apex);
-        syncRot(key);
-      } else if (s.snapped) {
-        // Already joined — keep the packing and slide the shared apex to the drop.
-        const apex = [dropX, rulerY];
-        const order = orderByAngle(sectors, existing.concat([key]));
-        layoutCluster(sectors, order, apex);
-        moveClusterHandles(order);
+      let apex;
+      if (existing.length === 0 || s.snapped) {
+        // First landing, or sliding a cluster already on the ruler: sit near the drop.
+        apex = [dropX, rulerY];
       } else {
-        // Join the cluster: share the existing apex, attach on the side of approach.
-        const apex = [existing[0] ? sectors[existing[0]].apex[0] : dropX, rulerY];
-        apex[0] = clampApexX(apex[0]);
-        const order = orderByAngle(sectors, existing);
-        if (dropX < apex[0] - 0.12) order.unshift(key);
-        else order.push(key);
-        s.snapped = true;
-        layoutCluster(sectors, order, apex);
-        moveClusterHandles(order);
+        // Join others already on the ruler: share their vertex, keep this sector's direction.
+        apex = [clampApexX(sectors[existing[0]].apex[0]), rulerY];
       }
 
+      s.snapped = true;
+      snappedKeys(sectors).forEach((k) => {
+        sectors[k].apex = apex;
+      });
+      moveClusterHandles(snappedKeys(sectors));
       board.update();
-      if (allSnapped() && typeof onSnapAll === "function") onSnapAll();
     }
 
     function rotateSector(key, delta) {
+      // Rotate only the selected sector, even if several share a vertex.
       const s = sectors[key];
       if (!s) return;
-      const clustered = snappedKeys(sectors);
-      if (s.snapped && clustered.length >= 2) {
-        // Rotate the packed group as one piece, staying in the upper half-plane.
-        const order = orderByAngle(sectors, clustered);
-        const M = order.reduce((sum, k) => sum + sectors[k].measureRad, 0);
-        let start = Math.max.apply(null, order.map((k) => sectors[k].to)) + delta;
-        if (start > Math.PI) start = Math.PI;
-        if (start - M < 0) start = M;
-        const apex = [s.apex[0], rulerY];
-        order.forEach((k) => {
-          const m = sectors[k].measureRad;
-          const from = start - m;
-          const to = start;
-          sectors[k].from = from;
-          sectors[k].to = to;
-          sectors[k].mid = (from + to) / 2;
-          sectors[k].apex = [apex[0], apex[1]];
-          start = from;
-        });
-        moveClusterHandles(order);
-      } else {
-        setSectorAngles(s, s.mid + delta);
-        syncRot(key);
-      }
+      setSectorAngles(s, s.mid + delta);
+      syncRot(key);
       board.update();
-    }
-
-    function allSnapped() {
-      return Object.keys(sectors).every((k) => sectors[k].snapped);
     }
 
     Object.keys(sectors).forEach((key) => {
@@ -868,13 +815,6 @@
           if (s.snapped && handle.Y() > rulerY + 1.85) {
             s.snapped = false;
             s.apex = [handle.X(), handle.Y()];
-            const remain = snappedKeys(sectors);
-            if (remain.length) {
-              const apex = [sectors[remain[0]].apex[0], rulerY];
-              const order = orderByAngle(sectors, remain);
-              layoutCluster(sectors, order, apex);
-              moveClusterHandles(order);
-            }
           } else if (s.snapped) {
             const pos = [handle.X(), handle.Y()];
             s.apex = pos;
@@ -897,18 +837,12 @@
         });
 
         rot.on("drag", function () {
-          const clustered = snappedKeys(sectors);
           const ang = Math.atan2(rot.Y() - handle.Y(), rot.X() - handle.X());
-          if (s.snapped && clustered.length >= 2) {
-            const curr = s.mid;
-            rotateSector(key, ang - curr);
-          } else {
-            setSectorAngles(s, ang);
-            rot.setPositionDirectly(JXG.COORDS_BY_USER, [
-              handle.X() + s.radius * Math.cos(s.mid),
-              handle.Y() + s.radius * Math.sin(s.mid),
-            ]);
-          }
+          setSectorAngles(s, ang);
+          rot.setPositionDirectly(JXG.COORDS_BY_USER, [
+            handle.X() + s.radius * Math.cos(s.mid),
+            handle.Y() + s.radius * Math.sin(s.mid),
+          ]);
         });
       }
     });
@@ -954,17 +888,12 @@
       }
       state.tear._verts = data.verts;
       state.tear._meeting = meeting;
-      drawLooseSectors(board, homes, true, meeting, function () {
-        state.tear.phase = "placed";
-        state.tear.loose = null;
-        state.tear.loosePreset = null;
-        renderAll();
-      });
+      drawLooseSectors(board, homes, true, meeting);
     } else {
       // placed or revealed: sectors sit on the ruler, triangle remains as ghost
       drawTearFigure(data, false);
       const placed = placeSectorsOnRuler(data.verts, meeting, 1.45);
-      drawLooseSectors(board, placed, false, meeting, null);
+      drawLooseSectors(board, placed, false, meeting);
     }
   }
 
@@ -1057,11 +986,11 @@
     if (phase === "torn") {
       const hint = document.createElement("p");
       hint.className = "lede";
-      hint.textContent = "Drag each coloured corner onto the ruler. The first one sits where you drop it, with the vertex on the line and the angle opening upwards. Drop another onto the ruler, or next to a sector already there, and they snap together around one vertex.";
+      hint.textContent = "Drag each coloured corner onto the ruler. The vertex sits on the line and the sector keeps its direction. Drop another onto the ruler, or next to a sector already there, and they share one vertex.";
       side.appendChild(hint);
       const hint2 = document.createElement("p");
       hint2.className = "lede";
-      hint2.textContent = "When all three join they form a straight angle. To turn a sector yourself before they are fully packed, select it and press Rotate, or drag the small circle (↻) on its arc.";
+      hint2.textContent = "Use Rotate, or drag the small circle (↻) on its arc, to turn a sector. Press Fit them against the ruler to arrange all three into a straight angle.";
       side.appendChild(hint2);
 
       const pickLab = document.createElement("p");
