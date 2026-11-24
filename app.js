@@ -80,6 +80,7 @@
         <li>實體活動完成後，再投影幾款不同三角形（銳角不等邊、直角、鈍角、等腰、等邊），讓學生看到結果一樣。</li>
         <li>三個角貼上尺後，先問「What do these three angles form?」，才揭示 straight angle／180° 與簡稱 ∠ sum of △。</li>
         <li>投影不方便拖曳時，可用 “Fit them against the ruler”。</li>
+        <li>撕下後，角 A 原本開口向下。把扇形拖到尺附近時，會自動轉成頂點貼在尺上、開口向上。也可以先選取該角，按 Rotate left／Rotate right，或拖動弧上的小圓點來旋轉。</li>
       </ul>
     `,
     proof: `
@@ -130,6 +131,8 @@
     },
     notesOpen: false,
   };
+
+  let tearUI = null;
 
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
@@ -523,11 +526,31 @@
       placed[key] = {
         apex: [meeting[0], meeting[1]],
         from, to, mid: (from + to) / 2,
+        measureRad: m,
         radius, color: v.color, fill: v.fill, name: v.name, measure: v.measure,
+        snapped: true,
       };
       start = from;
     });
     return placed;
+  }
+
+  function setSectorAngles(s, mid) {
+    const m = s.measureRad;
+    s.mid = mid;
+    s.from = mid - m / 2;
+    s.to = mid + m / 2;
+  }
+
+  function orientSectorUpward(s) {
+    // Vertex will sit on the ruler; the sector opens into the upper half-plane,
+    // bisector straight up (π/2).
+    setSectorAngles(s, Math.PI / 2);
+  }
+
+  function parkOnRuler(key, meeting) {
+    const dx = { a: -2.8, b: 0, c: 2.8 };
+    return [meeting[0] + (dx[key] || 0), meeting[1]];
   }
 
   function tornHomePositions(verts) {
@@ -535,14 +558,16 @@
     const homes = {};
     Object.values(verts).forEach((v) => {
       const mid = v.ang.mid;
-      const out = 0.85;
+      const measureRad = (typeof v.ang.abs === "number") ? v.ang.abs : rad(v.measure);
       homes[v.name] = {
-        apex: [v.V[0] + Math.cos(mid) * 0.15, v.V[1] + Math.cos(mid) * 0 + Math.sin(mid) * 0.15],
+        apex: [v.V[0] + Math.cos(mid) * 0.15, v.V[1] + Math.sin(mid) * 0.15],
         from: v.ang.from,
         to: v.ang.to,
         mid: v.ang.mid,
-        radius: 1.05,
+        measureRad: measureRad,
+        radius: 1.15,
         color: v.color, fill: v.fill, name: v.name, measure: v.measure,
+        snapped: false,
       };
     });
     return homes;
@@ -550,8 +575,66 @@
 
   function drawLooseSectors(board, sectors, draggable, meeting, onSnapAll) {
     const handles = {};
+    const rots = {};
+    const polys = {};
+    const rulerY = meeting[1];
+
+    function syncRot(key) {
+      const s = sectors[key];
+      const handle = handles[key];
+      const rot = rots[key];
+      if (!handle || !rot) return;
+      rot.setPositionDirectly(JXG.COORDS_BY_USER, [
+        handle.X() + s.radius * Math.cos(s.mid),
+        handle.Y() + s.radius * Math.sin(s.mid),
+      ]);
+    }
+
+    function applySelection() {
+      Object.keys(polys).forEach((key) => {
+        const on = draggable && state.tear.selected === key;
+        polys[key].setAttribute({
+          borders: { strokeColor: sectors[key].color, strokeWidth: on ? 3.6 : 2, highlight: false },
+        });
+      });
+      if (draggable) updateTearSelectionButtons();
+    }
+
+    function selectKey(key) {
+      if (!draggable) return;
+      state.tear.selected = key;
+      applySelection();
+    }
+
+    function snapSectorToRuler(key) {
+      const s = sectors[key];
+      const handle = handles[key];
+      if (!s || !handle) return;
+      const firstSnap = !s.snapped;
+      s.snapped = true;
+      s.apex = parkOnRuler(key, meeting);
+      handle.setPositionDirectly(JXG.COORDS_BY_USER, s.apex);
+      if (firstSnap) orientSectorUpward(s);
+      syncRot(key);
+      board.update();
+      if (allSnapped() && typeof onSnapAll === "function") onSnapAll();
+    }
+
+    function rotateSector(key, delta) {
+      const s = sectors[key];
+      if (!s) return;
+      setSectorAngles(s, s.mid + delta);
+      syncRot(key);
+      board.update();
+    }
+
+    function allSnapped() {
+      return Object.keys(sectors).every((k) => sectors[k].snapped);
+    }
+
     Object.keys(sectors).forEach((key) => {
       const s = sectors[key];
+      if (!s.measureRad) s.measureRad = Math.abs(s.to - s.from) || rad(s.measure);
       const handle = board.create("point", s.apex, {
         name: "",
         size: draggable ? 6 : 1.5,
@@ -564,11 +647,10 @@
         showInfobox: false,
         snapToGrid: false,
       });
-      const labR = s.radius * 0.62;
-      const mid = s.mid;
+      const labR = s.radius * 0.58;
       board.create("text", [
-        () => handle.X() + labR * Math.cos(mid),
-        () => handle.Y() + labR * Math.sin(mid),
+        () => handle.X() + labR * Math.cos(s.mid),
+        () => handle.Y() + labR * Math.sin(s.mid),
         s.name,
       ], {
         fontSize: 18,
@@ -584,14 +666,13 @@
       const pts = [];
       pts.push(handle);
       for (let i = 0; i <= n; i++) {
-        const t0 = s.from + (s.to - s.from) * (i / n);
         const iCopy = i;
         pts.push(board.create("point", [
           () => handle.X() + s.radius * Math.cos(s.from + (s.to - s.from) * (iCopy / n)),
           () => handle.Y() + s.radius * Math.sin(s.from + (s.to - s.from) * (iCopy / n)),
         ], { visible: false, withLabel: false, name: "" }));
       }
-      board.create("polygon", pts, {
+      const poly = board.create("polygon", pts, {
         fillColor: s.fill,
         fillOpacity: 0.95,
         borders: { strokeColor: s.color, strokeWidth: 2, highlight: false },
@@ -600,25 +681,76 @@
         hasInnerPoints: true,
       });
       handles[key] = handle;
+      polys[key] = poly;
+
       if (draggable) {
+        const rot = board.create("point", [
+          s.apex[0] + s.radius * Math.cos(s.mid),
+          s.apex[1] + s.radius * Math.sin(s.mid),
+        ], {
+          name: "↻",
+          size: 6,
+          fillColor: "#fff",
+          strokeColor: s.color,
+          strokeWidth: 2,
+          fillOpacity: 1,
+          fixed: false,
+          withLabel: true,
+          label: {
+            fontSize: 16,
+            color: s.color,
+            offset: [8, 10],
+            cssStyle: "font-weight:700;font-family:Source Sans 3,sans-serif;",
+          },
+          highlight: true,
+          showInfobox: false,
+          snapToGrid: false,
+        });
+        rots[key] = rot;
+
+        handle.on("down", function () { selectKey(key); });
+        rot.on("down", function () { selectKey(key); });
+        poly.on("down", function () { selectKey(key); });
+
+        handle.on("drag", function () {
+          s.apex = [handle.X(), handle.Y()];
+          if (s.snapped && handle.Y() > rulerY + 1.8) s.snapped = false;
+          syncRot(key);
+        });
+
         handle.on("up", function () {
-          const y = handle.Y();
-          const rulerY = meeting[1];
-          if (y < rulerY + 1.4) {
-            // snap this one to the shared meeting point and lock all if all are close
-            handle.setPositionDirectly(JXG.COORDS_BY_USER, [meeting[0], meeting[1]]);
-            s.snapped = true;
-            board.update();
-            const all = Object.values(handles).every((h) => {
-              const d = Math.hypot(h.X() - meeting[0], h.Y() - meeting[1]);
-              return d < 0.35;
-            });
-            if (all && typeof onSnapAll === "function") onSnapAll();
+          selectKey(key);
+          if (handle.Y() < rulerY + 1.6) {
+            snapSectorToRuler(key);
           }
+        });
+
+        rot.on("drag", function () {
+          const ang = Math.atan2(rot.Y() - handle.Y(), rot.X() - handle.X());
+          setSectorAngles(s, ang);
+          rot.setPositionDirectly(JXG.COORDS_BY_USER, [
+            handle.X() + s.radius * Math.cos(s.mid),
+            handle.Y() + s.radius * Math.sin(s.mid),
+          ]);
         });
       }
     });
+
+    applySelection();
+
+    tearUI = {
+      board, sectors, handles, rots,
+      snapSectorToRuler, rotateSector, selectKey, syncRot, applySelection,
+    };
     return handles;
+  }
+
+  function updateTearSelectionButtons() {
+    const side = document.getElementById("side");
+    if (!side) return;
+    side.querySelectorAll("[data-select-angle]").forEach((b) => {
+      b.setAttribute("aria-pressed", b.getAttribute("data-select-angle") === state.tear.selected ? "true" : "false");
+    });
   }
 
   function renderTearBoard() {
@@ -633,15 +765,21 @@
       drawTearFigure(data, true);
     } else if (phase === "torn") {
       drawTearFigure(data, false);
-      const homes = tornHomePositions(data.verts);
-      // Use ruler-ready orientation already? Keep original orientations until snap, then refit.
-      state.tear._homes = homes;
+      let homes;
+      if (state.tear.loose && state.tear.loosePreset === state.preset) {
+        homes = state.tear.loose;
+      } else {
+        homes = tornHomePositions(data.verts);
+        state.tear.loose = homes;
+        state.tear.loosePreset = state.preset;
+        if (!state.tear.selected) state.tear.selected = "a";
+      }
       state.tear._verts = data.verts;
       state.tear._meeting = meeting;
-      const placed = placeSectorsOnRuler(data.verts, meeting, 1.35);
-      // Start at home (original orientation); on snap, we will redraw as placed.
       drawLooseSectors(board, homes, true, meeting, function () {
         state.tear.phase = "placed";
+        state.tear.loose = null;
+        state.tear.loosePreset = null;
         renderAll();
       });
     } else {
@@ -687,7 +825,7 @@
       b.setAttribute("aria-pressed", p.id === state.preset ? "true" : "false");
       b.addEventListener("click", () => {
         state.preset = p.id;
-        state.tear = { phase: "intact", chosen: null, sectors: null };
+        state.tear = { phase: "intact", chosen: null, sectors: null, loose: null, loosePreset: null, selected: "a" };
         setHash(p.hash);
         renderAll();
       });
@@ -706,6 +844,9 @@
     tearBtn.addEventListener("click", () => {
       state.tear.phase = "torn";
       state.tear.chosen = null;
+      state.tear.loose = null;
+      state.tear.loosePreset = null;
+      state.tear.selected = "a";
       renderAll();
     });
     const fitBtn = document.createElement("button");
@@ -717,6 +858,8 @@
     fitBtn.addEventListener("click", () => {
       state.tear.phase = "placed";
       state.tear.chosen = null;
+      state.tear.loose = null;
+      state.tear.loosePreset = null;
       renderAll();
     });
     const resetBtn = document.createElement("button");
@@ -724,7 +867,8 @@
     resetBtn.className = "btn-ghost btn-wide";
     resetBtn.textContent = "Reset";
     resetBtn.addEventListener("click", () => {
-      state.tear = { phase: "intact", chosen: null, sectors: null };
+      state.tear = { phase: "intact", chosen: null, sectors: null, loose: null, loosePreset: null, selected: "a" };
+      tearUI = null;
       renderAll();
     });
     actions.appendChild(tearBtn);
@@ -735,8 +879,64 @@
     if (phase === "torn") {
       const hint = document.createElement("p");
       hint.className = "lede";
-      hint.textContent = "Drag the three coloured corners onto the ruler, or fit them for the class.";
+      hint.textContent = "Drag each coloured corner onto the ruler. When it meets the ruler, it turns so the vertex sits on the line and the angle opens upwards.";
       side.appendChild(hint);
+      const hint2 = document.createElement("p");
+      hint2.className = "lede";
+      hint2.textContent = "To turn a sector yourself, select it and press Rotate, or drag the small circle (↻) on its arc.";
+      side.appendChild(hint2);
+
+      const pickLab = document.createElement("p");
+      pickLab.className = "kicker-free";
+      pickLab.textContent = "Turn a sector";
+      side.appendChild(pickLab);
+
+      if (!state.tear.selected) state.tear.selected = "a";
+      const pick = document.createElement("div");
+      pick.className = "row";
+      ["a", "b", "c"].forEach((key) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "choice btn-wide";
+        b.setAttribute("data-select-angle", key);
+        b.setAttribute("aria-pressed", state.tear.selected === key ? "true" : "false");
+        b.textContent = "Angle " + key;
+        b.addEventListener("click", () => {
+          state.tear.selected = key;
+          if (tearUI && tearUI.selectKey) tearUI.selectKey(key);
+          else updateTearSelectionButtons();
+        });
+        pick.appendChild(b);
+      });
+      side.appendChild(pick);
+
+      const rotRow = document.createElement("div");
+      rotRow.className = "row";
+      const left = document.createElement("button");
+      left.type = "button";
+      left.className = "btn btn-wide";
+      left.setAttribute("data-action", "rotate-left");
+      left.textContent = "↺  Rotate left";
+      left.addEventListener("click", () => {
+        if (!tearUI) return;
+        const key = state.tear.selected || "a";
+        tearUI.selectKey(key);
+        tearUI.rotateSector(key, Math.PI / 6);
+      });
+      const right = document.createElement("button");
+      right.type = "button";
+      right.className = "btn btn-wide";
+      right.setAttribute("data-action", "rotate-right");
+      right.textContent = "Rotate right  ↻";
+      right.addEventListener("click", () => {
+        if (!tearUI) return;
+        const key = state.tear.selected || "a";
+        tearUI.selectKey(key);
+        tearUI.rotateSector(key, -Math.PI / 6);
+      });
+      rotRow.appendChild(left);
+      rotRow.appendChild(right);
+      side.appendChild(rotRow);
     }
 
     if (phase === "placed" || phase === "revealed") {
@@ -1550,7 +1750,7 @@
     if (parsed.preset) state.preset = parsed.preset;
     if (parsed.item) state.item = parsed.item;
     if (resetFlow) {
-      if (state.mode === "tear") state.tear = { phase: "intact", chosen: null, sectors: null };
+      if (state.mode === "tear") state.tear = { phase: "intact", chosen: null, sectors: null, loose: null, loosePreset: null, selected: "a" };
       if (state.mode === "proof") state.proof = { step: 1, reason3: false, reason4: false, correspondence: false };
       if (state.mode === "practice") state.practice = { step: 0 };
     }
@@ -1570,6 +1770,13 @@
     document.getElementById("notes-btn").addEventListener("click", () => {
       state.notesOpen = !state.notesOpen;
       renderNotes();
+    });
+    document.addEventListener("tas-tear-cmd", (ev) => {
+      if (!tearUI) return;
+      const d = ev.detail || {};
+      if (d.cmd === "snap" && d.key) tearUI.snapSectorToRuler(d.key);
+      if (d.cmd === "rotate" && d.key) tearUI.rotateSector(d.key, d.delta || 0);
+      if (d.cmd === "select" && d.key) tearUI.selectKey(d.key);
     });
     window.addEventListener("hashchange", () => {
       applyRoute(parseHash(), true);
