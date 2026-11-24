@@ -59,6 +59,12 @@
       title: "Example 5.3",
       subtitle: "Find the unknown angle in a triangle",
     },
+    te53: {
+      id: "te53",
+      hash: "te5.3",
+      title: "Teaching Example 5.3",
+      subtitle: "Find the unknown angle in a triangle",
+    },
     qp53: {
       id: "qp53",
       hash: "qp5.3",
@@ -71,6 +77,18 @@
       title: "Example 5.4",
       subtitle: "Further problem on finding unknown angles in triangles",
     },
+    te54: {
+      id: "te54",
+      hash: "te5.4",
+      title: "Teaching Example 5.4",
+      subtitle: "Further problem on finding unknown angles in triangles",
+    },
+    qp54: {
+      id: "qp54",
+      hash: "qp5.4",
+      title: "Quick Practice 5.4",
+      subtitle: "Further problem on finding unknown angles in triangles",
+    },
   };
 
   const NOTES = {
@@ -80,7 +98,8 @@
         <li>實體活動完成後，再投影幾款不同三角形（銳角不等邊、直角、鈍角、等腰、等邊），讓學生看到結果一樣。</li>
         <li>三個角貼上尺後，先問「What do these three angles form?」，才揭示 straight angle／180° 與簡稱 ∠ sum of △。</li>
         <li>投影不方便拖曳時，可用 “Fit them against the ruler”。</li>
-        <li>撕下後，角 A 原本開口向下。把扇形拖到尺附近時，會自動轉成頂點貼在尺上、開口向上。也可以先選取該角，按 Rotate left／Rotate right，或拖動弧上的小圓點來旋轉。</li>
+        <li>撕下後，把扇形拖到尺上：第一隻會停在放下的位置，頂點貼尺、開口向上。再把另一隻拖到尺上或靠過去，它們會共用同一個頂點、邊貼邊拼在一起，不會彈開到遠處。三隻都貼上後，會拼成平角。</li>
+        <li>尚未全部拼好時，可選取該角，按 Rotate left／Rotate right，或拖動弧上的小圓點來旋轉。</li>
       </ul>
     `,
     proof: `
@@ -92,11 +111,11 @@
       </ul>
     `,
     practice: `
-      <p>只鎖定課本 Example 5.3、Quick Practice 5.3、Example 5.4。三題一開始就可選，不必先收起 5.4。</p>
+      <p>鎖定課本 Example 5.3、Teaching Example 5.3、Quick Practice 5.3、Example 5.4、Teaching Example 5.4、Quick Practice 5.4。六題一開始就可選。</p>
       <ul>
         <li>每題都按「先辨三角形與已知角 → 才寫式 → 才出終值」逐步揭示，不要一次過放出答案。</li>
-        <li>Example 5.4 可先出示 Tips for Students：在 △ABC、△ACD、△ABD 之中，先處理只有一個未知角的三角形（△ABC）。</li>
-        <li>理由一律用 ∠ sum of △；圖上的數值須與課本一致。</li>
+        <li>Example 5.4 可先出示 Tips for Students：在 △ABC、△ACD、△ABD 之中，先處理只有一個未知角的三角形（△ABC）。Teaching Example 5.4 與 Quick Practice 5.4 同樣先處理只有一個未知角的三角形，再用「直線上兩鄰角和為 180°」處理第二個三角形。不要提及對應角或同側內角。</li>
+        <li>理由一律用 ∠ sum of △（直線則直接說明是 straight line）；圖上的數值須與課本一致。</li>
       </ul>
     `,
   };
@@ -173,8 +192,11 @@
     if (h === "tear-equilateral") return { mode: "tear", preset: "equilateral" };
     if (h === "proof") return { mode: "proof" };
     if (h === "ex5.3") return { mode: "practice", item: "ex53" };
+    if (h === "te5.3" || h === "te53") return { mode: "practice", item: "te53" };
     if (h === "qp5.3") return { mode: "practice", item: "qp53" };
     if (h === "ex5.4") return { mode: "practice", item: "ex54" };
+    if (h === "te5.4" || h === "te54") return { mode: "practice", item: "te54" };
+    if (h === "qp5.4") return { mode: "practice", item: "qp54" };
     return { mode: "tear", preset: "acute" };
   }
 
@@ -212,6 +234,38 @@
     const ty = box.cy - cy * scale;
     const map = (p) => [p[0] * scale + tx, p[1] * scale + ty];
     return { A: map(tri.A), B: map(tri.B), C: map(tri.C), scale };
+  }
+
+  function fitPoints(points, box) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    points.forEach((pt) => {
+      minX = Math.min(minX, pt[0]); minY = Math.min(minY, pt[1]);
+      maxX = Math.max(maxX, pt[0]); maxY = Math.max(maxY, pt[1]);
+    });
+    const w = maxX - minX || 1;
+    const h = maxY - minY || 1;
+    const scale = Math.min(box.w / w, box.h / h);
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const map = (pt) => [(pt[0] - cx) * scale + box.cx, (pt[1] - cy) * scale + box.cy];
+    return { map, scale };
+  }
+
+  function thirdPointOnBase(vertex, shared, baseY, wantXGreaterThan, angleDeg) {
+    // From `vertex`, take a ray that makes angleDeg with the ray to `shared`,
+    // and meet the horizontal line y = baseY on the requested side.
+    const angShared = Math.atan2(shared[1] - vertex[1], shared[0] - vertex[0]);
+    const candidates = [];
+    [1, -1].forEach((sign) => {
+      const ang = angShared + sign * rad(angleDeg);
+      const sy = Math.sin(ang);
+      if (Math.abs(sy) < 1e-8) return;
+      const t = (baseY - vertex[1]) / sy;
+      if (t <= 0) return;
+      candidates.push([vertex[0] + t * Math.cos(ang), baseY]);
+    });
+    const prefer = candidates.filter((p) => wantXGreaterThan ? p[0] > wantXGreaterThan : p[0] < wantXGreaterThan);
+    return (prefer[0] || candidates[0] || [shared[0] + 2, baseY]);
   }
 
   function angleAt(P, V, Q) {
@@ -544,13 +598,38 @@
 
   function orientSectorUpward(s) {
     // Vertex will sit on the ruler; the sector opens into the upper half-plane,
-    // bisector straight up (π/2).
+    // bisector straight up (π/2). Used only for a lone sector on the ruler.
     setSectorAngles(s, Math.PI / 2);
   }
 
-  function parkOnRuler(key, meeting) {
-    const dx = { a: -2.8, b: 0, c: 2.8 };
-    return [meeting[0] + (dx[key] || 0), meeting[1]];
+  function snappedKeys(sectors) {
+    return ["a", "b", "c"].filter((k) => sectors[k] && sectors[k].snapped);
+  }
+
+  function orderByAngle(sectors, keys) {
+    // Left to right: larger `to` (the left ray) comes first.
+    return keys.slice().sort((p, q) => sectors[q].to - sectors[p].to);
+  }
+
+  function layoutCluster(sectors, keys, apex) {
+    // Pack the given sectors (already in left-to-right order) so they share
+    // one vertex on the ruler and sit side by side, opening upward.
+    if (!keys.length) return;
+    const M = keys.reduce((sum, k) => sum + sectors[k].measureRad, 0);
+    let start = Math.PI / 2 + M / 2;
+    if (start > Math.PI) start = Math.PI;
+    if (start - M < 0) start = M;
+    keys.forEach((key) => {
+      const s = sectors[key];
+      const m = s.measureRad;
+      const from = start - m;
+      const to = start;
+      s.from = from;
+      s.to = to;
+      s.mid = (from + to) / 2;
+      s.apex = [apex[0], apex[1]];
+      start = from;
+    });
   }
 
   function tornHomePositions(verts) {
@@ -606,16 +685,67 @@
       applySelection();
     }
 
+    function clampApexX(x) {
+      const lo = meeting[0] - 4.4;
+      const hi = meeting[0] + 4.4;
+      return Math.max(lo, Math.min(hi, x));
+    }
+
+    function moveClusterHandles(keys) {
+      keys.forEach((k) => {
+        const sec = sectors[k];
+        const h = handles[k];
+        if (!sec || !h) return;
+        h.setPositionDirectly(JXG.COORDS_BY_USER, sec.apex);
+        syncRot(k);
+      });
+    }
+
+    function nearRuler(handle) {
+      return handle.Y() < rulerY + 1.85;
+    }
+
+    function nearCluster(handle) {
+      const others = snappedKeys(sectors);
+      if (!others.length) return false;
+      const ax = sectors[others[0]].apex[0];
+      const ay = rulerY;
+      return Math.hypot(handle.X() - ax, handle.Y() - ay) < 2.8;
+    }
+
     function snapSectorToRuler(key) {
       const s = sectors[key];
       const handle = handles[key];
       if (!s || !handle) return;
-      const firstSnap = !s.snapped;
-      s.snapped = true;
-      s.apex = parkOnRuler(key, meeting);
-      handle.setPositionDirectly(JXG.COORDS_BY_USER, s.apex);
-      if (firstSnap) orientSectorUpward(s);
-      syncRot(key);
+      const dropX = clampApexX(handle.X());
+      const existing = snappedKeys(sectors).filter((k) => k !== key);
+
+      if (existing.length === 0) {
+        // First sector on the ruler: sit near the drop, vertex on the line, open upward.
+        const apex = [dropX, rulerY];
+        s.snapped = true;
+        s.apex = apex;
+        orientSectorUpward(s);
+        handle.setPositionDirectly(JXG.COORDS_BY_USER, apex);
+        syncRot(key);
+      } else if (s.snapped) {
+        // Already joined — keep the packing and slide the shared apex to the drop.
+        const apex = [dropX, rulerY];
+        const order = orderByAngle(sectors, existing.concat([key]));
+        layoutCluster(sectors, order, apex);
+        moveClusterHandles(order);
+      } else {
+        // Join the cluster: share the existing apex, attach on the side of approach.
+        const apex = [existing[0] ? sectors[existing[0]].apex[0] : dropX, rulerY];
+        apex[0] = clampApexX(apex[0]);
+        const order = orderByAngle(sectors, existing);
+        if (dropX < apex[0] - 0.12) order.unshift(key);
+        else order.push(key);
+        s.snapped = true;
+        layoutCluster(sectors, order, apex);
+        moveClusterHandles(order);
+      }
+
       board.update();
       if (allSnapped() && typeof onSnapAll === "function") onSnapAll();
     }
@@ -623,8 +753,30 @@
     function rotateSector(key, delta) {
       const s = sectors[key];
       if (!s) return;
-      setSectorAngles(s, s.mid + delta);
-      syncRot(key);
+      const clustered = snappedKeys(sectors);
+      if (s.snapped && clustered.length >= 2) {
+        // Rotate the packed group as one piece, staying in the upper half-plane.
+        const order = orderByAngle(sectors, clustered);
+        const M = order.reduce((sum, k) => sum + sectors[k].measureRad, 0);
+        let start = Math.max.apply(null, order.map((k) => sectors[k].to)) + delta;
+        if (start > Math.PI) start = Math.PI;
+        if (start - M < 0) start = M;
+        const apex = [s.apex[0], rulerY];
+        order.forEach((k) => {
+          const m = sectors[k].measureRad;
+          const from = start - m;
+          const to = start;
+          sectors[k].from = from;
+          sectors[k].to = to;
+          sectors[k].mid = (from + to) / 2;
+          sectors[k].apex = [apex[0], apex[1]];
+          start = from;
+        });
+        moveClusterHandles(order);
+      } else {
+        setSectorAngles(s, s.mid + delta);
+        syncRot(key);
+      }
       board.update();
     }
 
@@ -713,25 +865,50 @@
         poly.on("down", function () { selectKey(key); });
 
         handle.on("drag", function () {
-          s.apex = [handle.X(), handle.Y()];
-          if (s.snapped && handle.Y() > rulerY + 1.8) s.snapped = false;
+          if (s.snapped && handle.Y() > rulerY + 1.85) {
+            s.snapped = false;
+            s.apex = [handle.X(), handle.Y()];
+            const remain = snappedKeys(sectors);
+            if (remain.length) {
+              const apex = [sectors[remain[0]].apex[0], rulerY];
+              const order = orderByAngle(sectors, remain);
+              layoutCluster(sectors, order, apex);
+              moveClusterHandles(order);
+            }
+          } else if (s.snapped) {
+            const pos = [handle.X(), handle.Y()];
+            s.apex = pos;
+            snappedKeys(sectors).filter((k) => k !== key).forEach((k) => {
+              sectors[k].apex = pos;
+              handles[k].setPositionDirectly(JXG.COORDS_BY_USER, pos);
+              syncRot(k);
+            });
+          } else {
+            s.apex = [handle.X(), handle.Y()];
+          }
           syncRot(key);
         });
 
         handle.on("up", function () {
           selectKey(key);
-          if (handle.Y() < rulerY + 1.6) {
+          if (nearRuler(handle) || nearCluster(handle)) {
             snapSectorToRuler(key);
           }
         });
 
         rot.on("drag", function () {
+          const clustered = snappedKeys(sectors);
           const ang = Math.atan2(rot.Y() - handle.Y(), rot.X() - handle.X());
-          setSectorAngles(s, ang);
-          rot.setPositionDirectly(JXG.COORDS_BY_USER, [
-            handle.X() + s.radius * Math.cos(s.mid),
-            handle.Y() + s.radius * Math.sin(s.mid),
-          ]);
+          if (s.snapped && clustered.length >= 2) {
+            const curr = s.mid;
+            rotateSector(key, ang - curr);
+          } else {
+            setSectorAngles(s, ang);
+            rot.setPositionDirectly(JXG.COORDS_BY_USER, [
+              handle.X() + s.radius * Math.cos(s.mid),
+              handle.Y() + s.radius * Math.sin(s.mid),
+            ]);
+          }
         });
       }
     });
@@ -742,6 +919,7 @@
       board, sectors, handles, rots,
       snapSectorToRuler, rotateSector, selectKey, syncRot, applySelection,
     };
+    if (typeof window !== "undefined") window.__tasTearUI = tearUI;
     return handles;
   }
 
@@ -879,11 +1057,11 @@
     if (phase === "torn") {
       const hint = document.createElement("p");
       hint.className = "lede";
-      hint.textContent = "Drag each coloured corner onto the ruler. When it meets the ruler, it turns so the vertex sits on the line and the angle opens upwards.";
+      hint.textContent = "Drag each coloured corner onto the ruler. The first one sits where you drop it, with the vertex on the line and the angle opening upwards. Drop another onto the ruler, or next to a sector already there, and they snap together around one vertex.";
       side.appendChild(hint);
       const hint2 = document.createElement("p");
       hint2.className = "lede";
-      hint2.textContent = "To turn a sector yourself, select it and press Rotate, or drag the small circle (↻) on its arc.";
+      hint2.textContent = "When all three join they form a straight angle. To turn a sector yourself before they are fully packed, select it and press Rotate, or drag the small circle (↻) on its arc.";
       side.appendChild(hint2);
 
       const pickLab = document.createElement("p");
@@ -1465,16 +1643,197 @@
     });
   }
 
+  function drawTe53(board) {
+    // Teaching Example 5.3: ∠A = 80°, ∠C = 45°, ∠B = 55°.
+    const raw = triangleFromAngles(80, 55, 45, 6);
+    const tri = fitTriangle(raw, { cx: 0, cy: 0.25, w: 8.4, h: 5.1 });
+    poly(board, [tri.A, tri.B, tri.C], { fillColor: "#f1e6cf", fillOpacity: 0.9 });
+    const A = pt(board, tri.A, { name: "A", label: { offset: [0, 18], fontSize: 20, anchorX: "middle" } });
+    const B = pt(board, tri.B, { name: "B", label: { offset: [-16, -16], fontSize: 20 } });
+    const C = pt(board, tri.C, { name: "C", label: { offset: [12, -16], fontSize: 20 } });
+    const r = 0.85;
+    angleWedge(board, B, A, C, r, COL.a, COL.aFill, "80°");
+    angleWedge(board, A, C, B, r, COL.c, COL.cFill, "45°");
+    const angB = interiorOrder(tri.A, tri.B, tri.C);
+    const coords = sectorCoords(tri.B, angB.from, angB.to, 0.7);
+    sectorPoly(board, coords, COL.b, COL.bFill);
+    if (state.practice.step >= 3 && state.item === "te53") {
+      const mid = angB.mid;
+      board.create("text", [
+        tri.B[0] + 0.48 * Math.cos(mid),
+        tri.B[1] + 0.48 * Math.sin(mid),
+        "55°",
+      ], {
+        fontSize: 18, color: COL.b, anchorX: "middle", highlight: false, fixed: true,
+        cssStyle: "font-weight:700;font-family:Source Sans 3,sans-serif;",
+      });
+    }
+  }
+
+  function drawTe54(board, highlight) {
+    // Teaching Example 5.4: QRS is a straight line.
+    // △PQR: x = ∠QPR = 28°, ∠PQR = 52°, ∠PRQ = 100°.
+    // △PRS: ∠RPS = 64°, ∠PRS = 80°, y = ∠PSR = 36°.
+    const raw = triangleFromAngles(28, 52, 100, 6);
+    const P0 = raw.A, Q0 = raw.B, R0 = raw.C;
+    const S0 = thirdPointOnBase(P0, R0, Q0[1], R0[0], 64);
+    const fitted = fitPoints([P0, Q0, R0, S0], { cx: 0.15, cy: 0.2, w: 10.2, h: 5.1 });
+    const P = fitted.map(P0), Q = fitted.map(Q0), R = fitted.map(R0), S = fitted.map(S0);
+
+    const hl = highlight || "none";
+    if (hl === "PQR") {
+      poly(board, [P, Q, R], { fillColor: "#dcecdc", fillOpacity: 0.95, borders: { strokeColor: COL.ink, strokeWidth: 2.2, highlight: false } });
+      board.create("segment", [P, S], { strokeColor: COL.ink, strokeWidth: 2.2, highlight: false, fixed: true });
+    } else if (hl === "PRS") {
+      poly(board, [P, R, S], { fillColor: "#f3e1cc", fillOpacity: 0.95, borders: { strokeColor: COL.ink, strokeWidth: 2.2, highlight: false } });
+      board.create("segment", [P, Q], { strokeColor: COL.ink, strokeWidth: 2.2, highlight: false, fixed: true });
+    } else {
+      poly(board, [P, Q, S], { fillColor: "#f1e6cf", fillOpacity: 0.85 });
+      board.create("segment", [P, R], { strokeColor: COL.ink, strokeWidth: 2.2, highlight: false, fixed: true });
+    }
+
+    const extL = [Q[0] - 0.55, Q[1]];
+    const extR = [S[0] + 0.7, S[1]];
+    board.create("segment", [extL, extR], {
+      strokeColor: COL.ink, strokeWidth: 2.2, highlight: false, fixed: true,
+    });
+
+    const Pp = pt(board, P, { name: "P", label: { offset: [0, 18], fontSize: 20, anchorX: "middle" } });
+    const Qp = pt(board, Q, { name: "Q", label: { offset: [-16, -16], fontSize: 20 } });
+    const Rp = pt(board, R, { name: "R", label: { offset: [-4, -18], fontSize: 20 } });
+    const Sp = pt(board, S, { name: "S", label: { offset: [12, -16], fontSize: 20 } });
+
+    const showX = state.practice.step >= 3 && state.item === "te54";
+    const showY = state.practice.step >= 6 && state.item === "te54";
+
+    // x at P in △PQR
+    const angX = interiorOrder(Q, P, R);
+    sectorPoly(board, sectorCoords(P, angX.from, angX.to, 0.9), COL.a, COL.aFill);
+    board.create("text", [
+      P[0] + 1.12 * Math.cos(angX.mid),
+      P[1] + 1.12 * Math.sin(angX.mid),
+      showX ? "28°" : "x",
+    ], {
+      fontSize: 20, color: COL.a, anchorX: "middle", highlight: false, fixed: true,
+      cssStyle: "font-weight:700;font-family:Source Sans 3,sans-serif;",
+      parse: false,
+    });
+
+    // 64° at P in △PRS
+    angleWedge(board, Rp, Pp, Sp, 0.95, COL.b, COL.bFill, "64°");
+
+    // 52° at Q
+    angleWedge(board, Pp, Qp, Rp, 0.75, COL.c, COL.cFill, "52°");
+
+    // 100° at R in △PQR
+    angleWedge(board, Pp, Rp, Qp, 0.62, COL.a, COL.aFill, "100°");
+
+    // y at S
+    const angY = interiorOrder(P, S, R);
+    sectorPoly(board, sectorCoords(S, angY.from, angY.to, 0.7), COL.b, COL.bFill);
+    board.create("text", [
+      S[0] + 0.72 * Math.cos(angY.mid),
+      S[1] + 0.72 * Math.sin(angY.mid),
+      showY ? "36°" : "y",
+    ], {
+      fontSize: 18, color: COL.b, anchorX: "middle", highlight: false, fixed: true,
+      cssStyle: "font-weight:700;font-family:Source Sans 3,sans-serif;",
+      parse: false,
+    });
+  }
+
+  function drawQp54(board, highlight) {
+    // Quick Practice 5.4: BCD is a straight line.
+    // △ABC: x = ∠BAC = 72°, ∠ABC = 32°, ∠ACB = 76°.
+    // △ACD: y = ∠CAD = 30°, ∠ACD = 104°, ∠ADC = 46°.
+    const raw = triangleFromAngles(72, 32, 76, 6);
+    const A0 = raw.A, B0 = raw.B, C0 = raw.C;
+    const D0 = thirdPointOnBase(A0, C0, B0[1], C0[0], 30);
+    const fitted = fitPoints([A0, B0, C0, D0], { cx: 0.15, cy: 0.25, w: 10.2, h: 5.0 });
+    const A = fitted.map(A0), B = fitted.map(B0), C = fitted.map(C0), D = fitted.map(D0);
+
+    const hl = highlight || "none";
+    if (hl === "ABC") {
+      poly(board, [A, B, C], { fillColor: "#dcecdc", fillOpacity: 0.95, borders: { strokeColor: COL.ink, strokeWidth: 2.2, highlight: false } });
+      board.create("segment", [A, D], { strokeColor: COL.ink, strokeWidth: 2.2, highlight: false, fixed: true });
+    } else if (hl === "ACD") {
+      poly(board, [A, C, D], { fillColor: "#f3e1cc", fillOpacity: 0.95, borders: { strokeColor: COL.ink, strokeWidth: 2.2, highlight: false } });
+      board.create("segment", [A, B], { strokeColor: COL.ink, strokeWidth: 2.2, highlight: false, fixed: true });
+    } else {
+      poly(board, [A, B, D], { fillColor: "#f1e6cf", fillOpacity: 0.85 });
+      board.create("segment", [A, C], { strokeColor: COL.ink, strokeWidth: 2.2, highlight: false, fixed: true });
+    }
+
+    const extL = [B[0] - 0.55, B[1]];
+    const extR = [D[0] + 0.7, D[1]];
+    board.create("segment", [extL, extR], {
+      strokeColor: COL.ink, strokeWidth: 2.2, highlight: false, fixed: true,
+    });
+
+    const Ap = pt(board, A, { name: "A", label: { offset: [0, 18], fontSize: 20, anchorX: "middle" } });
+    const Bp = pt(board, B, { name: "B", label: { offset: [-16, -16], fontSize: 20 } });
+    const Cp = pt(board, C, { name: "C", label: { offset: [-4, -18], fontSize: 20 } });
+    const Dp = pt(board, D, { name: "D", label: { offset: [12, -16], fontSize: 20 } });
+
+    const showX = state.practice.step >= 3 && state.item === "qp54";
+    const showY = state.practice.step >= 6 && state.item === "qp54";
+
+    const angX = interiorOrder(B, A, C);
+    sectorPoly(board, sectorCoords(A, angX.from, angX.to, 0.95), COL.a, COL.aFill);
+    board.create("text", [
+      A[0] + 0.62 * Math.cos(angX.mid),
+      A[1] + 0.62 * Math.sin(angX.mid),
+      showX ? "72°" : "x",
+    ], {
+      fontSize: 20, color: COL.a, anchorX: "middle", highlight: false, fixed: true,
+      cssStyle: "font-weight:700;font-family:Source Sans 3,sans-serif;",
+      parse: false,
+    });
+
+    const angY = interiorOrder(C, A, D);
+    sectorPoly(board, sectorCoords(A, angY.from, angY.to, 1.15), COL.b, COL.bFill);
+    board.create("text", [
+      A[0] + 0.78 * Math.cos(angY.mid),
+      A[1] + 0.78 * Math.sin(angY.mid),
+      showY ? "30°" : "y",
+    ], {
+      fontSize: 18, color: COL.b, anchorX: "middle", highlight: false, fixed: true,
+      cssStyle: "font-weight:700;font-family:Source Sans 3,sans-serif;",
+      parse: false,
+    });
+
+    angleWedge(board, Ap, Bp, Cp, 0.75, COL.c, COL.cFill, "32°");
+    angleWedge(board, Ap, Cp, Bp, 0.7, COL.a, COL.aFill, "76°");
+    angleWedge(board, Ap, Dp, Cp, 0.7, COL.b, COL.bFill, "46°");
+  }
+
   function renderPracticeBoard() {
     const board = initBoard([-6.2, 5.4, 6.2, -3.8]);
-    if (state.item === "ex53") drawEx53(board);
-    else if (state.item === "qp53") drawQp53(board);
-    else {
+    const item = state.item;
+    const step = state.practice.step;
+    if (item === "ex53") drawEx53(board);
+    else if (item === "te53") drawTe53(board);
+    else if (item === "qp53") drawQp53(board);
+    else if (item === "te54") {
       let hl = "none";
-      if (state.practice.step >= 1 && state.practice.step <= 3) hl = "ABC";
-      if (state.practice.step >= 4) hl = "ABD";
+      if (step >= 1 && step <= 3) hl = "PQR";
+      if (step >= 4) hl = "PRS";
+      drawTe54(board, hl);
+    } else if (item === "qp54") {
+      let hl = "none";
+      if (step >= 1 && step <= 3) hl = "ABC";
+      if (step >= 4) hl = "ACD";
+      drawQp54(board, hl);
+    } else {
+      let hl = "none";
+      if (step >= 1 && step <= 3) hl = "ABC";
+      if (step >= 4) hl = "ABD";
       drawEx54(board, hl);
     }
+  }
+
+  function isTwoUnknown(id) {
+    return id === "ex54" || id === "te54" || id === "qp54";
   }
 
   function addEq(parent, src) {
@@ -1510,25 +1869,28 @@
     const item = ITEMS[state.item];
     const stem = document.createElement("p");
     stem.className = "stem";
+    const sub = document.createElement("p");
+    sub.className = "kicker-free";
     if (item.id === "ex53") {
-      const sub = document.createElement("p");
-      sub.className = "kicker-free";
       sub.textContent = "Example 5.3  ·  Find the unknown angle in a triangle";
-      side.appendChild(sub);
       stem.textContent = "Find ∠R in the figure.";
+    } else if (item.id === "te53") {
+      sub.textContent = "Teaching Example 5.3";
+      stem.textContent = "Find ∠B in the figure.";
     } else if (item.id === "qp53") {
-      const sub = document.createElement("p");
-      sub.className = "kicker-free";
       sub.textContent = "Quick Practice 5.3";
-      side.appendChild(sub);
       stem.textContent = "Find ∠A in the figure.";
-    } else {
-      const sub = document.createElement("p");
-      sub.className = "kicker-free";
+    } else if (item.id === "ex54") {
       sub.textContent = "Example 5.4  ·  Further problem on finding unknown angles in triangles";
-      side.appendChild(sub);
+      stem.textContent = "In the figure, BCD is a straight line. Find x and y.";
+    } else if (item.id === "te54") {
+      sub.textContent = "Teaching Example 5.4";
+      stem.textContent = "In the figure, QRS is a straight line. Find x and y.";
+    } else if (item.id === "qp54") {
+      sub.textContent = "Quick Practice 5.4";
       stem.textContent = "In the figure, BCD is a straight line. Find x and y.";
     }
+    side.appendChild(sub);
     side.appendChild(stem);
 
     const scaf = document.createElement("div");
@@ -1561,6 +1923,20 @@
         addEq(li, "\\angle R = 180^{\\circ} - 60^{\\circ} - 65^{\\circ}");
         addEq(li, "\\angle R = 55^{\\circ}");
       }, step >= 3);
+    } else if (item.id === "te53") {
+      block("1  Identify the triangle and the known angles", (li) => {
+        const p = document.createElement("p");
+        p.textContent = "We work in △ABC. The known angles are ∠A = 80° and ∠C = 45°.";
+        li.appendChild(p);
+      }, step >= 1);
+      block("2  Write the equation", (li) => {
+        addEq(li, "\\angle A + \\angle B + \\angle C = 180^{\\circ}\\quad(\\angle\\,\\text{sum of }\\triangle)");
+        addEq(li, "80^{\\circ} + \\angle B + 45^{\\circ} = 180^{\\circ}");
+      }, step >= 2);
+      block("3  Find the unknown angle", (li) => {
+        addEq(li, "\\angle B = 180^{\\circ} - 80^{\\circ} - 45^{\\circ}");
+        addEq(li, "\\angle B = 55^{\\circ}");
+      }, step >= 3);
     } else if (item.id === "qp53") {
       block("1  Identify the triangle and the known angles", (li) => {
         const p = document.createElement("p");
@@ -1575,10 +1951,7 @@
         addEq(li, "\\angle A = 180^{\\circ} - 43^{\\circ} - 37^{\\circ}");
         addEq(li, "\\angle A = 100^{\\circ}");
       }, step >= 3);
-    } else {
-      if (step >= 0) {
-        const tipBtnNeeded = true;
-      }
+    } else if (item.id === "ex54") {
       if (step >= 1) {
         const tip = document.createElement("div");
         tip.className = "reason filled";
@@ -1612,11 +1985,65 @@
         addEq(li, "y = 180^{\\circ} - 24^{\\circ} - 34^{\\circ} - 90^{\\circ}");
         addEq(li, "y = 32^{\\circ}");
       }, step >= 6);
+    } else if (item.id === "te54") {
+      block("1  Identify — start with △PQR", (li) => {
+        const p = document.createElement("p");
+        p.textContent = "In △PQR there is only one unknown angle. The known angles are ∠PQR = 52° and ∠PRQ = 100°. The unknown is x = ∠QPR.";
+        li.appendChild(p);
+      }, step >= 1);
+      block("2  Write the equation in △PQR", (li) => {
+        addEq(li, "\\angle QPR + \\angle PQR + \\angle PRQ = 180^{\\circ}\\quad(\\angle\\,\\text{sum of }\\triangle)");
+        addEq(li, "x + 52^{\\circ} + 100^{\\circ} = 180^{\\circ}");
+      }, step >= 2);
+      block("3  Find x", (li) => {
+        addEq(li, "x = 180^{\\circ} - 52^{\\circ} - 100^{\\circ}");
+        addEq(li, "x = 28^{\\circ}");
+      }, step >= 3);
+      block("4  Identify — now △PRS", (li) => {
+        const p = document.createElement("p");
+        p.textContent = "QRS is a straight line, so ∠PRQ + ∠PRS = 180°. Hence ∠PRS = 180° − 100° = 80°. In △PRS the known angles are ∠RPS = 64° and ∠PRS = 80°. The unknown is y = ∠PSR.";
+        li.appendChild(p);
+      }, step >= 4);
+      block("5  Write the equation in △PRS", (li) => {
+        addEq(li, "\\angle RPS + \\angle PRS + \\angle PSR = 180^{\\circ}\\quad(\\angle\\,\\text{sum of }\\triangle)");
+        addEq(li, "64^{\\circ} + 80^{\\circ} + y = 180^{\\circ}");
+      }, step >= 5);
+      block("6  Find y", (li) => {
+        addEq(li, "y = 180^{\\circ} - 64^{\\circ} - 80^{\\circ}");
+        addEq(li, "y = 36^{\\circ}");
+      }, step >= 6);
+    } else if (item.id === "qp54") {
+      block("1  Identify — start with △ABC", (li) => {
+        const p = document.createElement("p");
+        p.textContent = "In △ABC there is only one unknown angle. The known angles are ∠ABC = 32° and ∠ACB = 76°. The unknown is x = ∠BAC.";
+        li.appendChild(p);
+      }, step >= 1);
+      block("2  Write the equation in △ABC", (li) => {
+        addEq(li, "\\angle BAC + \\angle ABC + \\angle ACB = 180^{\\circ}\\quad(\\angle\\,\\text{sum of }\\triangle)");
+        addEq(li, "x + 32^{\\circ} + 76^{\\circ} = 180^{\\circ}");
+      }, step >= 2);
+      block("3  Find x", (li) => {
+        addEq(li, "x = 180^{\\circ} - 32^{\\circ} - 76^{\\circ}");
+        addEq(li, "x = 72^{\\circ}");
+      }, step >= 3);
+      block("4  Identify — now △ACD", (li) => {
+        const p = document.createElement("p");
+        p.textContent = "BCD is a straight line, so ∠ACB + ∠ACD = 180°. Hence ∠ACD = 180° − 76° = 104°. In △ACD the known angles are ∠ADC = 46° and ∠ACD = 104°. The unknown is y = ∠CAD.";
+        li.appendChild(p);
+      }, step >= 4);
+      block("5  Write the equation in △ACD", (li) => {
+        addEq(li, "\\angle CAD + \\angle ACD + \\angle ADC = 180^{\\circ}\\quad(\\angle\\,\\text{sum of }\\triangle)");
+        addEq(li, "y + 104^{\\circ} + 46^{\\circ} = 180^{\\circ}");
+      }, step >= 5);
+      block("6  Find y", (li) => {
+        addEq(li, "y = 180^{\\circ} - 104^{\\circ} - 46^{\\circ}");
+        addEq(li, "y = 30^{\\circ}");
+      }, step >= 6);
     }
 
     side.appendChild(scaf);
 
-    const maxStep = item.id === "ex54" ? 6 : 3;
+    const maxStep = isTwoUnknown(item.id) ? 6 : 3;
     const nav2 = document.createElement("div");
     nav2.className = "actions-col";
     const back = document.createElement("button");
@@ -1635,15 +2062,17 @@
     if (step === 0 && item.id === "ex54") next.textContent = "Show the tip, then identify";
     else if (step === 0) next.textContent = "Identify the triangle";
     else if (step >= maxStep) next.textContent = "Done";
-    else if (item.id === "ex54" && step === 1) next.textContent = "Write the equation";
-    else if (item.id === "ex54" && step === 2) next.textContent = "Find x";
+    else if (isTwoUnknown(item.id) && step === 1) next.textContent = "Write the equation";
+    else if (isTwoUnknown(item.id) && step === 2) next.textContent = "Find x";
     else if (item.id === "ex54" && step === 3) next.textContent = "Now identify △ABD";
-    else if (item.id === "ex54" && step === 4) next.textContent = "Write the equation";
-    else if (item.id === "ex54" && step === 5) next.textContent = "Find y";
+    else if (item.id === "te54" && step === 3) next.textContent = "Now identify △PRS";
+    else if (item.id === "qp54" && step === 3) next.textContent = "Now identify △ACD";
+    else if (isTwoUnknown(item.id) && step === 4) next.textContent = "Write the equation";
+    else if (isTwoUnknown(item.id) && step === 5) next.textContent = "Find y";
     else if (step === 1) next.textContent = "Write the equation";
     else if (step === 2) next.textContent = "Find the unknown angle";
     else next.textContent = "Next";
-    next.disabled = step >= maxStep;
+        next.disabled = step >= maxStep;
     next.addEventListener("click", () => {
       state.practice.step = Math.min(maxStep, state.practice.step + 1);
       renderAll();
@@ -1657,13 +2086,13 @@
       renderAll();
     });
     nav2.appendChild(next);
-    const sub = document.createElement("div");
-    sub.className = "row";
+    const navRow = document.createElement("div");
+    navRow.className = "row";
     back.className = "btn-ghost btn-wide";
     reset.className = "btn-ghost btn-wide";
-    sub.appendChild(back);
-    sub.appendChild(reset);
-    nav2.appendChild(sub);
+    navRow.appendChild(back);
+    navRow.appendChild(reset);
+    nav2.appendChild(navRow);
     side.appendChild(nav2);
   }
 
