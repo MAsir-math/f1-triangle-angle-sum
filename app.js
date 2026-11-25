@@ -121,7 +121,7 @@
         <li>撕下後，把扇形拖到尺上：頂點會吸在尺線上，方向維持不變（向下或側向也保持原樣）。再拖另一隻到尺上或靠過去，它們會共用同一個頂點，但不會自動轉方向或拼齊。</li>
         <li>要用 Rotate left／Rotate right，或拖動弧上的小圓點（↻）來轉個別的角。按 “Fit them against the ruler” 才會把 a、b、c 由左至右拼成向上開口的平角，然後先問「What do these three angles form?」，才揭示 straight angle／180° 與簡稱 ∠ sum of △。</li>
         <li>投影不方便拖曳時，直接用 “Fit them against the ruler”。</li>
-        <li>「Choose a triangle」每種名稱旁有喇叭掣。學生按一下可聽英文讀音（例如 isosceles triangle、equilateral triangle）。按名稱仍只是選該三角形，不會一併播放。</li>
+        <li>「Choose a triangle」每種名稱旁有喇叭掣。學生按一下可聽美式英文讀音（例如 isosceles triangle、equilateral triangle）。按名稱仍只是選該三角形，不會一併播放。</li>
       </ul>
     `,
     proof: `
@@ -187,10 +187,10 @@
     if (!window.speechSynthesis || !phrase) return;
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(phrase);
-    utter.lang = "en-GB";
+    utter.lang = "en-US";
     utter.rate = 0.9;
     const voices = window.speechSynthesis.getVoices() || [];
-    const preferred = voices.find((v) => /en-GB/i.test(v.lang))
+    const preferred = voices.find((v) => /en-US/i.test(v.lang))
       || voices.find((v) => /^en/i.test(v.lang));
     if (preferred) utter.voice = preferred;
     window.speechSynthesis.speak(utter);
