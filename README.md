@@ -6,7 +6,7 @@ The page is for teacher projection and recap. It does not replace the paper tear
 
 ## Modes
 
-- **A Tear and join** (`#tear`) — five locked triangles; tear the interior angles and fit them against a ruler, then name the angle they form before 180° is revealed.
+- **A Tear and join** (`#tear`) — five locked triangles; tear the interior angles and fit them against a ruler, then name the angle they form before 180° is revealed. A listen button beside each type plays a short recording of the English name.
 - **B Appendix proof** (`#proof`) — teacher-controlled steps: draw △ABC, construct DE ∥ BC through A, identify alternate angles, and conclude that a + b + c = 180°.
 - **C Find the unknown angle** — locked textbook items Example 5.3 (`#ex5.3`), Teaching Example 5.3 (`#te5.3`), Teaching Example 5.3 Extra (`#te5.3x`), Quick Practice 5.3 (`#qp5.3`), Example 5.4 (`#ex5.4`), Teaching Example 5.4 (`#te5.4`), Teaching Example 5.4 Extra (`#te5.4x`), and Quick Practice 5.4 (`#qp5.4`). All eight are available from the start.
 

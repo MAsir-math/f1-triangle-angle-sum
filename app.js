@@ -24,30 +24,40 @@
       id: "acute",
       hash: "tear-acute",
       label: "Acute scalene",
+      phrase: "acute scalene triangle",
+      audio: "audio/acute-scalene.mp3",
       a: 50, b: 70, c: 60,
     },
     right: {
       id: "right",
       hash: "tear-right",
       label: "Right-angled",
+      phrase: "right-angled triangle",
+      audio: "audio/right-angled.mp3",
       a: 40, b: 90, c: 50,
     },
     obtuse: {
       id: "obtuse",
       hash: "tear-obtuse",
       label: "Obtuse",
+      phrase: "obtuse triangle",
+      audio: "audio/obtuse.mp3",
       a: 30, b: 110, c: 40,
     },
     iso: {
       id: "iso",
       hash: "tear-iso",
       label: "Isosceles",
+      phrase: "isosceles triangle",
+      audio: "audio/isosceles.mp3",
       a: 70, b: 55, c: 55,
     },
     equilateral: {
       id: "equilateral",
       hash: "tear-equilateral",
       label: "Equilateral",
+      phrase: "equilateral triangle",
+      audio: "audio/equilateral.mp3",
       a: 60, b: 60, c: 60,
     },
   };
@@ -111,6 +121,7 @@
         <li>撕下後，把扇形拖到尺上：頂點會吸在尺線上，方向維持不變（向下或側向也保持原樣）。再拖另一隻到尺上或靠過去，它們會共用同一個頂點，但不會自動轉方向或拼齊。</li>
         <li>要用 Rotate left／Rotate right，或拖動弧上的小圓點（↻）來轉個別的角。按 “Fit them against the ruler” 才會把 a、b、c 由左至右拼成向上開口的平角，然後先問「What do these three angles form?」，才揭示 straight angle／180° 與簡稱 ∠ sum of △。</li>
         <li>投影不方便拖曳時，直接用 “Fit them against the ruler”。</li>
+        <li>「Choose a triangle」每種名稱旁有喇叭掣。學生按一下可聽英文讀音（例如 isosceles triangle、equilateral triangle）。按名稱仍只是選該三角形，不會一併播放。</li>
       </ul>
     `,
     proof: `
@@ -167,6 +178,54 @@
 
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+
+  const LISTEN_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M4 9v6h3.2L12 19.2V4.8L7.2 9H4zm11.5 3c0-1.77-1-3.29-2.5-4.03v8.06c1.5-.74 2.5-2.26 2.5-4.03zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>';
+
+  let pronunciationAudio = null;
+
+  function speakFallback(phrase) {
+    if (!window.speechSynthesis || !phrase) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(phrase);
+    utter.lang = "en-GB";
+    utter.rate = 0.9;
+    const voices = window.speechSynthesis.getVoices() || [];
+    const preferred = voices.find((v) => /en-GB/i.test(v.lang))
+      || voices.find((v) => /^en/i.test(v.lang));
+    if (preferred) utter.voice = preferred;
+    window.speechSynthesis.speak(utter);
+  }
+
+  function markListenPlaying(id) {
+    $$("[data-listen]").forEach((b) => {
+      b.classList.toggle("is-playing", b.getAttribute("data-listen") === id);
+    });
+  }
+
+  function playPronunciation(preset) {
+    if (!preset) return;
+    if (pronunciationAudio) {
+      pronunciationAudio.pause();
+      pronunciationAudio.removeAttribute("src");
+      pronunciationAudio = null;
+    }
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    const audio = new Audio(preset.audio);
+    pronunciationAudio = audio;
+    markListenPlaying(preset.id);
+    const fallback = function () {
+      if (pronunciationAudio === audio) {
+        markListenPlaying(null);
+        speakFallback(preset.phrase);
+      }
+    };
+    audio.addEventListener("ended", function () {
+      if (pronunciationAudio === audio) markListenPlaying(null);
+    });
+    audio.addEventListener("error", fallback);
+    const play = audio.play();
+    if (play && typeof play.catch === "function") play.catch(fallback);
+  }
 
   function deg(r) { return r * 180 / Math.PI; }
   function rad(d) { return d * Math.PI / 180; }
@@ -938,8 +997,10 @@
     side.appendChild(lab);
 
     const row = document.createElement("div");
-    row.className = "row";
+    row.className = "preset-list";
     Object.values(TEAR_PRESETS).forEach((p) => {
+      const item = document.createElement("div");
+      item.className = "preset-item";
       const b = document.createElement("button");
       b.type = "button";
       b.className = "choice";
@@ -951,7 +1012,21 @@
         setHash(p.hash);
         renderAll();
       });
-      row.appendChild(b);
+      const listen = document.createElement("button");
+      listen.type = "button";
+      listen.className = "listen";
+      listen.setAttribute("data-listen", p.id);
+      listen.setAttribute("aria-label", "Listen: " + p.phrase);
+      listen.setAttribute("title", "Listen: " + p.phrase);
+      listen.innerHTML = LISTEN_ICON;
+      listen.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        playPronunciation(p);
+      });
+      item.appendChild(b);
+      item.appendChild(listen);
+      row.appendChild(item);
     });
     side.appendChild(row);
 
