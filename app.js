@@ -65,6 +65,12 @@
       title: "Teaching Example 5.3",
       subtitle: "Find the unknown angle in a triangle",
     },
+    te53x: {
+      id: "te53x",
+      hash: "te5.3x",
+      title: "Teaching Example 5.3 Extra",
+      subtitle: "Find the unknown angle in a triangle",
+    },
     qp53: {
       id: "qp53",
       hash: "qp5.3",
@@ -81,6 +87,12 @@
       id: "te54",
       hash: "te5.4",
       title: "Teaching Example 5.4",
+      subtitle: "Further problem on finding unknown angles in triangles",
+    },
+    te54x: {
+      id: "te54x",
+      hash: "te5.4x",
+      title: "Teaching Example 5.4 Extra",
       subtitle: "Further problem on finding unknown angles in triangles",
     },
     qp54: {
@@ -104,16 +116,17 @@
     proof: `
       <p>跟課本附錄證明逐步展示。過 A 作 DE ∥ BC 的作圖在 §5.3 才教，課堂可由老師在黑板畫出；App 已代為畫好，並註明 “DE ∥ BC is drawn for you”。</p>
       <ul>
-        <li>只用錘角（alt. ∠s）。不要提及對應角或同側內角，亦不要預告後面章節的角與線性質。</li>
+        <li>只用錘角（alt. ∠s），亦不要預告後面章節的角與線性質。</li>
         <li>出現第一對、第二對錘角時，先問理由，再顯示 “alt. ∠s, DE ∥ BC”。</li>
         <li>最後可用 “Show the angles on DE”，把三個同色扇形放到直線 DE 上，對應實體「三角貼在尺上」＝ ∠BAD、∠BAC、∠CAE 落在平角上。</li>
       </ul>
     `,
     practice: `
-      <p>鎖定課本 Example 5.3、Teaching Example 5.3、Quick Practice 5.3、Example 5.4、Teaching Example 5.4、Quick Practice 5.4。六題一開始就可選。</p>
+      <p>鎖定課本 Example 5.3、Teaching Example 5.3、Teaching Example 5.3 Extra、Quick Practice 5.3、Example 5.4、Teaching Example 5.4、Teaching Example 5.4 Extra、Quick Practice 5.4。八題一開始就可選。</p>
       <ul>
         <li>每題都按「先辨三角形與已知角 → 才寫式 → 才出終值」逐步揭示，不要一次過放出答案。</li>
-        <li>Example 5.4 可先出示 Tips for Students：在 △ABC、△ACD、△ABD 之中，先處理只有一個未知角的三角形（△ABC）。Teaching Example 5.4 與 Quick Practice 5.4 同樣先處理只有一個未知角的三角形，再用「直線上兩鄰角和為 180°」處理第二個三角形。不要提及對應角或同側內角。</li>
+        <li>Example 5.4 可先出示 Tips for Students：在 △ABC、△ACD、△ABD 之中，先處理只有一個未知角的三角形（△ABC）。Teaching Example 5.4、Teaching Example 5.4 Extra 與 Quick Practice 5.4 同樣先處理只有一個未知角的三角形；第二個三角形若涉及直線，直接說明該直線上兩鄰角和為 180°。</li>
+        <li>Teaching Example 5.3 Extra 分 (a)(b) 兩小題：先求出 x，再用 x 求 △ABC 的最大內角。</li>
         <li>理由一律用 ∠ sum of △（直線則直接說明是 straight line）；圖上的數值須與課本一致。</li>
       </ul>
     `,
@@ -192,9 +205,11 @@
     if (h === "proof") return { mode: "proof" };
     if (h === "ex5.3") return { mode: "practice", item: "ex53" };
     if (h === "te5.3" || h === "te53") return { mode: "practice", item: "te53" };
+    if (h === "te5.3x" || h === "te53x" || h === "te5.3-extra") return { mode: "practice", item: "te53x" };
     if (h === "qp5.3") return { mode: "practice", item: "qp53" };
     if (h === "ex5.4") return { mode: "practice", item: "ex54" };
     if (h === "te5.4" || h === "te54") return { mode: "practice", item: "te54" };
+    if (h === "te5.4x" || h === "te54x" || h === "te5.4-extra") return { mode: "practice", item: "te54x" };
     if (h === "qp5.4") return { mode: "practice", item: "qp54" };
     return { mode: "tear", preset: "acute" };
   }
@@ -1736,18 +1751,158 @@
     angleWedge(board, Ap, Dp, Cp, 0.7, COL.b, COL.bFill, "46°");
   }
 
+  function drawTe53x(board) {
+    // Teaching Example 5.3 Extra: ∠A = 2x = 96°, ∠B = x = 48°, ∠C = 36°.
+    const raw = triangleFromAngles(96, 48, 36, 6);
+    const tri = fitTriangle(raw, { cx: 0, cy: 0.15, w: 9.0, h: 4.8 });
+    poly(board, [tri.A, tri.B, tri.C], { fillColor: "#f1e6cf", fillOpacity: 0.9 });
+    const Ap = pt(board, tri.A, { name: "A", label: { offset: [0, 18], fontSize: 20, anchorX: "middle" } });
+    const Bp = pt(board, tri.B, { name: "B", label: { offset: [-16, -16], fontSize: 20 } });
+    const Cp = pt(board, tri.C, { name: "C", label: { offset: [12, -16], fontSize: 20 } });
+
+    const showX = state.practice.step >= 3 && state.item === "te53x";
+    const showLargest = state.practice.step >= 4 && state.item === "te53x";
+
+    const angA = interiorOrder(tri.B, tri.A, tri.C);
+    sectorPoly(board, sectorCoords(tri.A, angA.from, angA.to, 0.85), COL.a, COL.aFill);
+    board.create("text", [
+      tri.A[0] + 0.55 * Math.cos(angA.mid),
+      tri.A[1] + 0.55 * Math.sin(angA.mid),
+      showLargest ? "96°" : "2x",
+    ], {
+      fontSize: 20, color: COL.a, anchorX: "middle", highlight: false, fixed: true,
+      cssStyle: "font-weight:700;font-family:Source Sans 3,sans-serif;",
+      parse: false,
+    });
+
+    const angB = interiorOrder(tri.A, tri.B, tri.C);
+    sectorPoly(board, sectorCoords(tri.B, angB.from, angB.to, 0.8), COL.b, COL.bFill);
+    board.create("text", [
+      tri.B[0] + 0.52 * Math.cos(angB.mid),
+      tri.B[1] + 0.52 * Math.sin(angB.mid),
+      showX ? "48°" : "x",
+    ], {
+      fontSize: 20, color: COL.b, anchorX: "middle", highlight: false, fixed: true,
+      cssStyle: "font-weight:700;font-family:Source Sans 3,sans-serif;",
+      parse: false,
+    });
+
+    angleWedge(board, Ap, Cp, Bp, 0.75, COL.c, COL.cFill, "36°");
+  }
+
+  function drawTe54x(board, highlight) {
+    // Teaching Example 5.4 Extra: ADC is a straight line.
+    // △ABD: ∠A = x = 39°, ∠ABD = 2x = 78°, ∠ADB = 63°.
+    // △BDC: ∠DBC = y = 24°, ∠BCD = x = 39°, ∠BDC = 117°.
+    const raw = triangleFromAngles(39, 78, 63, 6);
+    let A0 = raw.A, B0 = raw.B, D0 = raw.C;
+    const ad0 = Math.atan2(D0[1] - A0[1], D0[0] - A0[0]);
+    const rot = rad(28) - ad0;
+    const rotPt = (p) => [
+      p[0] * Math.cos(rot) - p[1] * Math.sin(rot),
+      p[0] * Math.sin(rot) + p[1] * Math.cos(rot),
+    ];
+    A0 = rotPt(A0); B0 = rotPt(B0); D0 = rotPt(D0);
+    const adx = D0[0] - A0[0], ady = D0[1] - A0[1];
+    const adLen = Math.hypot(adx, ady) || 1;
+    const bd = Math.hypot(D0[0] - B0[0], D0[1] - B0[1]);
+    const cd = bd * Math.sin(rad(24)) / Math.sin(rad(39));
+    const C0 = [D0[0] + adx / adLen * cd, D0[1] + ady / adLen * cd];
+    const fitted = fitPoints([A0, B0, C0, D0], { cx: 0.1, cy: 0.15, w: 9.6, h: 5.2 });
+    const A = fitted.map(A0), B = fitted.map(B0), C = fitted.map(C0), D = fitted.map(D0);
+
+    const hl = highlight || "none";
+    if (hl === "ABD") {
+      poly(board, [A, B, D], { fillColor: "#dcecdc", fillOpacity: 0.95, borders: { strokeColor: COL.ink, strokeWidth: 2.2, highlight: false } });
+      board.create("segment", [B, C], { strokeColor: COL.ink, strokeWidth: 2.2, highlight: false, fixed: true });
+    } else if (hl === "BDC") {
+      poly(board, [B, D, C], { fillColor: "#f3e1cc", fillOpacity: 0.95, borders: { strokeColor: COL.ink, strokeWidth: 2.2, highlight: false } });
+      board.create("segment", [A, B], { strokeColor: COL.ink, strokeWidth: 2.2, highlight: false, fixed: true });
+    } else {
+      poly(board, [A, B, C], { fillColor: "#f1e6cf", fillOpacity: 0.85 });
+      board.create("segment", [B, D], { strokeColor: COL.ink, strokeWidth: 2.2, highlight: false, fixed: true });
+    }
+
+    const ux = (C[0] - A[0]), uy = (C[1] - A[1]);
+    const uLen = Math.hypot(ux, uy) || 1;
+    const extA = [A[0] - ux / uLen * 0.7, A[1] - uy / uLen * 0.7];
+    const extC = [C[0] + ux / uLen * 0.7, C[1] + uy / uLen * 0.7];
+    board.create("segment", [extA, extC], {
+      strokeColor: COL.ink, strokeWidth: 2.2, highlight: false, fixed: true,
+    });
+
+    const Ap = pt(board, A, { name: "A", label: { offset: [-18, 6], fontSize: 20 } });
+    const Bp = pt(board, B, { name: "B", label: { offset: [-4, -20], fontSize: 20, anchorX: "middle" } });
+    const Cp = pt(board, C, { name: "C", label: { offset: [12, 10], fontSize: 20 } });
+    const Dp = pt(board, D, { name: "D", label: { offset: [6, 16], fontSize: 20 } });
+
+    const showX = state.practice.step >= 3 && state.item === "te54x";
+    const showY = state.practice.step >= 6 && state.item === "te54x";
+
+    // x at A
+    const angX = interiorOrder(B, A, D);
+    sectorPoly(board, sectorCoords(A, angX.from, angX.to, 0.85), COL.a, COL.aFill);
+    board.create("text", [
+      A[0] + 0.55 * Math.cos(angX.mid),
+      A[1] + 0.55 * Math.sin(angX.mid),
+      showX ? "39°" : "x",
+    ], {
+      fontSize: 20, color: COL.a, anchorX: "middle", highlight: false, fixed: true,
+      cssStyle: "font-weight:700;font-family:Source Sans 3,sans-serif;",
+      parse: false,
+    });
+
+    // 2x at B in △ABD
+    angleWedge(board, Ap, Bp, Dp, 0.85, COL.b, COL.bFill, "2x");
+
+    // 63° at D in △ABD
+    angleWedge(board, Ap, Dp, Bp, 0.7, COL.c, COL.cFill, "63°");
+
+    // y at B in △BDC
+    const angY = interiorOrder(D, B, C);
+    sectorPoly(board, sectorCoords(B, angY.from, angY.to, 1.05), COL.a, COL.aFill);
+    board.create("text", [
+      B[0] + 0.7 * Math.cos(angY.mid),
+      B[1] + 0.7 * Math.sin(angY.mid),
+      showY ? "24°" : "y",
+    ], {
+      fontSize: 18, color: COL.a, anchorX: "middle", highlight: false, fixed: true,
+      cssStyle: "font-weight:700;font-family:Source Sans 3,sans-serif;",
+      parse: false,
+    });
+
+    // x at C
+    const angC = interiorOrder(B, C, D);
+    sectorPoly(board, sectorCoords(C, angC.from, angC.to, 0.8), COL.b, COL.bFill);
+    board.create("text", [
+      C[0] + 0.55 * Math.cos(angC.mid),
+      C[1] + 0.55 * Math.sin(angC.mid),
+      showX ? "39°" : "x",
+    ], {
+      fontSize: 20, color: COL.b, anchorX: "middle", highlight: false, fixed: true,
+      cssStyle: "font-weight:700;font-family:Source Sans 3,sans-serif;",
+      parse: false,
+    });
+  }
+
   function renderPracticeBoard() {
     const board = initBoard([-6.2, 5.4, 6.2, -3.8]);
     const item = state.item;
     const step = state.practice.step;
     if (item === "ex53") drawEx53(board);
     else if (item === "te53") drawTe53(board);
+    else if (item === "te53x") drawTe53x(board);
     else if (item === "qp53") drawQp53(board);
     else if (item === "te54") {
       let hl = "none";
       if (step >= 1 && step <= 3) hl = "PQR";
       if (step >= 4) hl = "PRS";
       drawTe54(board, hl);
+    } else if (item === "te54x") {
+      let hl = "none";
+      if (step >= 1 && step <= 3) hl = "ABD";
+      if (step >= 4) hl = "BDC";
+      drawTe54x(board, hl);
     } else if (item === "qp54") {
       let hl = "none";
       if (step >= 1 && step <= 3) hl = "ABC";
@@ -1762,7 +1917,13 @@
   }
 
   function isTwoUnknown(id) {
-    return id === "ex54" || id === "te54" || id === "qp54";
+    return id === "ex54" || id === "te54" || id === "te54x" || id === "qp54";
+  }
+
+  function practiceMaxStep(id) {
+    if (id === "te53x") return 4;
+    if (isTwoUnknown(id)) return 6;
+    return 3;
   }
 
   function addEq(parent, src) {
@@ -1806,6 +1967,9 @@
     } else if (item.id === "te53") {
       sub.textContent = "Teaching Example 5.3";
       stem.textContent = "Find ∠B in the figure.";
+    } else if (item.id === "te53x") {
+      sub.textContent = "Teaching Example 5.3 Extra";
+      stem.textContent = "Refer to the figure.";
     } else if (item.id === "qp53") {
       sub.textContent = "Quick Practice 5.3";
       stem.textContent = "Find ∠A in the figure.";
@@ -1815,12 +1979,26 @@
     } else if (item.id === "te54") {
       sub.textContent = "Teaching Example 5.4";
       stem.textContent = "In the figure, QRS is a straight line. Find x and y.";
+    } else if (item.id === "te54x") {
+      sub.textContent = "Teaching Example 5.4 Extra";
+      stem.textContent = "In the figure, ADC is a straight line. Find x and y.";
     } else if (item.id === "qp54") {
       sub.textContent = "Quick Practice 5.4";
       stem.textContent = "In the figure, BCD is a straight line. Find x and y.";
     }
     side.appendChild(sub);
     side.appendChild(stem);
+    if (item.id === "te53x") {
+      const parts = document.createElement("p");
+      parts.className = "stem";
+      const pa = document.createElement("div");
+      pa.textContent = "(a) Find x.";
+      const pb = document.createElement("div");
+      pb.textContent = "(b) Hence, find the largest interior angle of △ABC.";
+      parts.appendChild(pa);
+      parts.appendChild(pb);
+      side.appendChild(parts);
+    }
 
     const scaf = document.createElement("div");
     scaf.className = "scaffold";
@@ -1866,6 +2044,30 @@
         addEq(li, "\\angle B = 180^{\\circ} - 80^{\\circ} - 45^{\\circ}");
         addEq(li, "\\angle B = 55^{\\circ}");
       }, step >= 3);
+    } else if (item.id === "te53x") {
+      block("1  Identify the triangle and the known angles", (li) => {
+        const p = document.createElement("p");
+        p.textContent = "We work in △ABC. The interior angles are 2x at A, x at B, and 36° at C.";
+        li.appendChild(p);
+      }, step >= 1);
+      block("2  Write the equation", (li) => {
+        addEq(li, "2x + x + 36^{\\circ} = 180^{\\circ}\\quad(\\angle\\,\\text{sum of }\\triangle)");
+        addEq(li, "3x + 36^{\\circ} = 180^{\\circ}");
+      }, step >= 2);
+      block("3  (a) Find x", (li) => {
+        addEq(li, "3x = 180^{\\circ} - 36^{\\circ}");
+        addEq(li, "3x = 144^{\\circ}");
+        addEq(li, "x = 48^{\\circ}");
+      }, step >= 3);
+      block("4  (b) Find the largest interior angle of △ABC", (li) => {
+        const p = document.createElement("p");
+        p.textContent = "The interior angles are 2x, x and 36°. Using the value of x from (a):";
+        li.appendChild(p);
+        addEq(li, "2x = 2 \\times 48^{\\circ} = 96^{\\circ}");
+        const p2 = document.createElement("p");
+        p2.textContent = "The largest interior angle of △ABC is 96°.";
+        li.appendChild(p2);
+      }, step >= 4);
     } else if (item.id === "qp53") {
       block("1  Identify the triangle and the known angles", (li) => {
         const p = document.createElement("p");
@@ -1941,6 +2143,34 @@
         addEq(li, "y = 180^{\\circ} - 64^{\\circ} - 80^{\\circ}");
         addEq(li, "y = 36^{\\circ}");
       }, step >= 6);
+    } else if (item.id === "te54x") {
+      block("1  Identify — start with △ABD", (li) => {
+        const p = document.createElement("p");
+        p.textContent = "In △ABD there is only one unknown. The known angle is ∠ADB = 63°. The other two angles are x = ∠DAB and 2x = ∠ABD.";
+        li.appendChild(p);
+      }, step >= 1);
+      block("2  Write the equation in △ABD", (li) => {
+        addEq(li, "x + 2x + 63^{\\circ} = 180^{\\circ}\\quad(\\angle\\,\\text{sum of }\\triangle)");
+        addEq(li, "3x + 63^{\\circ} = 180^{\\circ}");
+      }, step >= 2);
+      block("3  Find x", (li) => {
+        addEq(li, "3x = 180^{\\circ} - 63^{\\circ}");
+        addEq(li, "3x = 117^{\\circ}");
+        addEq(li, "x = 39^{\\circ}");
+      }, step >= 3);
+      block("4  Identify — now △BDC", (li) => {
+        const p = document.createElement("p");
+        p.textContent = "ADC is a straight line, so ∠ADB + ∠BDC = 180°. Hence ∠BDC = 180° − 63° = 117°. In △BDC the known angles are ∠BCD = x = 39° and ∠BDC = 117°. The unknown is y = ∠DBC.";
+        li.appendChild(p);
+      }, step >= 4);
+      block("5  Write the equation in △BDC", (li) => {
+        addEq(li, "y + x + 117^{\\circ} = 180^{\\circ}\\quad(\\angle\\,\\text{sum of }\\triangle)");
+        addEq(li, "y + 39^{\\circ} + 117^{\\circ} = 180^{\\circ}");
+      }, step >= 5);
+      block("6  Find y", (li) => {
+        addEq(li, "y = 180^{\\circ} - 39^{\\circ} - 117^{\\circ}");
+        addEq(li, "y = 24^{\\circ}");
+      }, step >= 6);
     } else if (item.id === "qp54") {
       block("1  Identify — start with △ABC", (li) => {
         const p = document.createElement("p");
@@ -1972,7 +2202,7 @@
 
     side.appendChild(scaf);
 
-    const maxStep = isTwoUnknown(item.id) ? 6 : 3;
+    const maxStep = practiceMaxStep(item.id);
     const nav2 = document.createElement("div");
     nav2.className = "actions-col";
     const back = document.createElement("button");
@@ -1992,9 +2222,12 @@
     else if (step === 0) next.textContent = "Identify the triangle";
     else if (step >= maxStep) next.textContent = "Done";
     else if (isTwoUnknown(item.id) && step === 1) next.textContent = "Write the equation";
+    else if (item.id === "te53x" && step === 2) next.textContent = "Find x";
+    else if (item.id === "te53x" && step === 3) next.textContent = "Find the largest interior angle";
     else if (isTwoUnknown(item.id) && step === 2) next.textContent = "Find x";
     else if (item.id === "ex54" && step === 3) next.textContent = "Now identify △ABD";
     else if (item.id === "te54" && step === 3) next.textContent = "Now identify △PRS";
+    else if (item.id === "te54x" && step === 3) next.textContent = "Now identify △BDC";
     else if (item.id === "qp54" && step === 3) next.textContent = "Now identify △ACD";
     else if (isTwoUnknown(item.id) && step === 4) next.textContent = "Write the equation";
     else if (isTwoUnknown(item.id) && step === 5) next.textContent = "Find y";
